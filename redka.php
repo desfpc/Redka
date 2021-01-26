@@ -29,6 +29,10 @@ class redkaConnection {
         $this->lang=$lang;
         $this->debug=$debug;
 
+        if($host == 'localhost'){
+            $host = '127.0.0.1';;
+        }
+
         $socket = fsockopen($host, $port, $errno, $errstr);
 
         if(!is_resource($socket)){
