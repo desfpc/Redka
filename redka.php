@@ -1,7 +1,7 @@
 <?php
 /**
  * Redka v0.1
- * Created by Peshalov Sergey https://github.com/desfpc
+ * Created by Sergey Peshalov https://github.com/desfpc
  * Lite redis php class
  * https://github.com/desfpc/Redka
  */
