@@ -4,8 +4,12 @@
  * Created by Sergey Peshalov https://github.com/desfpc
  * Lite redis php class
  * https://github.com/desfpc/Redka
+ *
+ * Redis PHP Class
+ *
  */
-ini_set("memory_limit","512M");
+
+namespace redka;
 
 class redkaConnection {
 
