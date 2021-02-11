@@ -16,6 +16,7 @@ class redkaConnection {
     protected $socket;
     private $lang;
     public $debug = false;
+    public $status = 0;
 
     private $texts = [
         'error' => [
@@ -37,7 +38,16 @@ class redkaConnection {
             $host = '127.0.0.1';;
         }
 
-        $socket = fsockopen($host, $port, $errno, $errstr);
+        try {
+            $socket = fsockopen($host, $port, $errno, $errstr);
+        }
+        catch (\Throwable $e){
+            if($this->debug){
+                die($this->texts['debugConnectionError'][$this->lang].': '.$host.':'.$port.' - ('.$errno.') '.$errstr);
+            }
+            //die($this->texts['error'][$this->lang]);
+            return false;
+        }
 
         if(!is_resource($socket)){
 
@@ -48,17 +58,18 @@ class redkaConnection {
             if($this->debug){
                 die($this->texts['debugConnectionError'][$this->lang].': '.$host.':'.$port.' - ('.$errno.') '.$errstr);
             }
-            die($this->texts['error'][$this->lang]);
+            //die($this->texts['error'][$this->lang]);
+            return false;
         }
 
         if(!$socket){
-            $_SESSION['rediserror']=true; //TODO делалось для конкретной задачи - переделать на вывод ошибки
-            return;
+            //$_SESSION['rediserror']=true; //TODO делалось для конкретной задачи - переделать на вывод ошибки
+            return false;
         }
 
         $this->socket=$socket;
-
-        //die('Редиска сокет распахнула!');
+        $this->status = 1;
+        return true;
     }
 
     public function getSocket(){
@@ -95,6 +106,7 @@ class redka
     private $lang;
     public $debug = false;
     public $langs = ['en','ru'];
+    public $status = 0;
 
     private $texts = [
         'keyNotFound' => [
@@ -130,6 +142,11 @@ class redka
 
 	public function connect(){
 		$this->connection = new redkaConnection($this->host, $this->port, $this->lang, $this->debug);
+
+		if($this->connection->status == 1){
+		    $this->status = 1;
+        }
+
 		return $this;
 	}
 
