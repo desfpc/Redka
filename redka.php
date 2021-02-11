@@ -51,19 +51,14 @@ class redkaConnection {
 
         if(!is_resource($socket)){
 
-            header("HTTP/1.1 503 Service Temporarily Unavailable");
-            header("Status: 503 Service Temporarily Unavailable");
-            header("Retry-After: 108000");
-
             if($this->debug){
                 die($this->texts['debugConnectionError'][$this->lang].': '.$host.':'.$port.' - ('.$errno.') '.$errstr);
             }
-            //die($this->texts['error'][$this->lang]);
+
             return false;
         }
 
         if(!$socket){
-            //$_SESSION['rediserror']=true; //TODO делалось для конкретной задачи - переделать на вывод ошибки
             return false;
         }
 
