@@ -11,13 +11,13 @@
 
 namespace redka;
 
-class redkaConnection {
+class redkaConnection
+{
 
-    protected $socket;
-    private $lang;
     public $debug = false;
     public $status = 0;
-
+    protected $socket;
+    private $lang;
     private $texts = [
         'error' => [
             'en' => 'Service is temporarily unavailable',
@@ -29,80 +29,82 @@ class redkaConnection {
         ]
     ];
 
-    public function __construct($host='127.0.0.1', $port=6379, $lang='en', $debug=false) {
+    public function __construct($host = '127.0.0.1', $port = 6379, $lang = 'en', $debug = false)
+    {
 
-        $this->lang=$lang;
-        $this->debug=$debug;
+        $this->lang = $lang;
+        $this->debug = $debug;
 
-        if($host == 'localhost'){
+        if ($host == 'localhost') {
             $host = '127.0.0.1';;
         }
 
         try {
             $socket = fsockopen($host, $port, $errno, $errstr);
-        }
-        catch (\Throwable $e){
-            if($this->debug){
-                die($this->texts['debugConnectionError'][$this->lang].': '.$host.':'.$port.' - ('.$errno.') '.$errstr);
+        } catch (\Throwable $e) {
+            if ($this->debug) {
+                die($this->texts['debugConnectionError'][$this->lang] . ': ' . $host . ':' . $port . ' - (' . $errno . ') ' . $errstr);
             }
             //die($this->texts['error'][$this->lang]);
             return false;
         }
 
-        if(!is_resource($socket)){
+        if (!is_resource($socket)) {
 
-            if($this->debug){
-                die($this->texts['debugConnectionError'][$this->lang].': '.$host.':'.$port.' - ('.$errno.') '.$errstr);
+            if ($this->debug) {
+                die($this->texts['debugConnectionError'][$this->lang] . ': ' . $host . ':' . $port . ' - (' . $errno . ') ' . $errstr);
             }
 
             return false;
         }
 
-        if(!$socket){
+        if (!$socket) {
             return false;
         }
 
-        $this->socket=$socket;
+        $this->socket = $socket;
         $this->status = 1;
         return true;
     }
 
-    public function getSocket(){
+    public function getSocket()
+    {
         return $this->socket;
     }
 
-    public function send($command){
+    public function send($command)
+    {
         return fwrite($this->socket, $command);
     }
 
-    public function read(){
+    public function read()
+    {
         return fgets($this->socket);
     }
 
-    public function positionRead($position){
+    public function positionRead($position)
+    {
         return fread($this->socket, $position);
     }
 }
 
 class redka
 {
-	const LIST_PUSH_RIGHT=10;
-    const LIST_POP_RIGHT=10;
+    const LIST_PUSH_RIGHT = 10;
+    const LIST_POP_RIGHT = 10;
 
-	const LIST_PUSH_LEFT=20;
-	const LIST_POP_LEFT=20;
-
-	/**
-	 * @var redkaConnection
-	 */
-	protected $connection;
-	protected $host = 'localhost';
-	protected $port = 6379;
-    private $lang;
+    const LIST_PUSH_LEFT = 20;
+    const LIST_POP_LEFT = 20;
     public $debug = false;
-    public $langs = ['en','ru'];
+    public $langs = ['en', 'ru'];
     public $status = 0;
-
+    /**
+     * @var redkaConnection
+     */
+    protected $connection;
+    protected $host = 'localhost';
+    protected $port = 6379;
+    private $lang;
     private $texts = [
         'keyNotFound' => [
             'en' => 'Can\'t found in Redis key ',
@@ -122,229 +124,254 @@ class redka
         ]
     ];
 
-	public function __construct($host='localhost', $port=6379, $lang='en', $debug=false){
-		$this->host=$host;
-		$this->port=$port;
+    public function __construct($host = 'localhost', $port = 6379, $lang = 'en', $debug = false)
+    {
+        $this->host = $host;
+        $this->port = $port;
 
-        if(!in_array($lang, $this->langs)){
-            $lang='en';
+        if (!in_array($lang, $this->langs)) {
+            $lang = 'en';
         }
 
-        $this->lang=$lang;
-        $this->debug=$debug;
+        $this->lang = $lang;
+        $this->debug = $debug;
 
-	}
+    }
 
-	public function connect(){
-		$this->connection = new redkaConnection($this->host, $this->port, $this->lang, $this->debug);
-
-		if($this->connection->status == 1){
-		    $this->status = 1;
+    public function get($key)
+    {
+        if (!$this->has($key)) {
+            die($this->texts['keyNotFound'][$this->lang]);
         }
 
-		return $this;
-	}
+        return $this->send('get', array($key));
+    }
 
-	public function get($key){
-		if (!$this->has($key)){
-			die($this->texts['keyNotFound'][$this->lang]);
-		}
+    public function has($key)
+    {
+        return (boolean)$this->send('exists', array($key));
+    }
 
-		return $this->send('get', array($key));
-	}
+    public function send($command, array $arguments = array())
+    {
+        return $this->execute(array_merge(array($command), $arguments));
+    }
 
-	public function has($key){
-		return (boolean) $this->send('exists', array($key));
-	}
+    protected function execute(array $arguments)
+    {
 
-	public function del($key){
-		return $this->send('del', array($key));
-	}
+        if (!$this->connection) {
+            $this->connect();
+        }
 
-	public function set($key, $value, $expire = null)
-	{
-		if (is_int($expire)) {
-			return $this->send('setex', array($key, $expire, $value));
-		} else {
-			return $this->send('set', array($key, $value));
-		}
-	}
+        $command = '*' . count($arguments) . "\r\n";
 
-	public function listPush($listName, $value, $pushType = self::LIST_PUSH_RIGHT){
-		$command = 'rpush';
+        foreach ($arguments as $argument) {
+            $command .= '$' . strlen($argument) . "\r\n" . $argument . "\r\n";
+        }
 
-		if ($pushType == self::LIST_PUSH_LEFT) {
-			$command = 'lpush';
-		}
+        if (!$this->connection->send($command)) {
 
-		return $this->send($command, array($listName, $value));
-	}
+            $this->connect();
 
-	public function listPop($listName, $popType = self::LIST_POP_RIGHT){
-		$command = 'rpop';
-
-		if ($popType == self::LIST_POP_LEFT) {
-			$command = 'lpop';
-		}
-
-		return $this->send($command, array($listName));
-	}
-
-	public function listGet($listName, $index){
-		return $this->send('lindex', array($listName, $index));
-	}
-
-	public function hashGet($hashName, $key){
-		return $this->send('hget', array($hashName, $key));
-	}
-
-	public function hashSet($hashName, $key, $value){
-		return (boolean) $this->send('hset', array($hashName, $key, $value));
-	}
-
-	public function hashDelete($hashName, $key){
-		return (boolean) $this->send('hdel', array($hashName, $key));
-	}
-
-	public function listSet($listName, $index, $value){
-		return $this->send('lset', array($listName, $index, $value));
-	}
-
-	public function listGetRange($listName, $firstIndex, $lastIndex){
-		return $this->send('lrange', array($listName, $firstIndex, $lastIndex));
-	}
-
-	public function listLength($listName){
-		return $this->send('llen', array($listName));
-	}
-
-	public function remove($key){
-		return $this->send('del', array($key));
-	}
-
-	public function authenticate($password){
-		return $this->send('auth', array($password));
-	}
-
-	public function persist($key){
-		return $this->send('persist', array($key));
-	}
-
-	public function findKeys($pattern = '*'){
-		return $this->send('keys', array($pattern));
-	}
-
-	public function flush(){
-		return $this->send('flushdb');
-	}
-
-	public function getStats(){
-		return $this->send('info');
-	}
-
-	public function getParameter($parameterName){
-		return $this->send('config', array('GET', $parameterName));
-	}
-
-	public function setParameter($parameterName, $value){
-		return $this->send('config', array('SET', $parameterName, $value));
-	}
-
-	public function getSize(){
-		return $this->send('dbsize');
-	}
-
-	public function send($command, array $arguments = array()){
-		return $this->execute(array_merge(array($command), $arguments));
-	}
-
-	protected function execute(array $arguments){
-
-		if(!$this->connection){
-			$this->connect();
-		}
-
-		$command = '*'.count($arguments)."\r\n";
-
-		foreach($arguments as $argument){
-			$command .= '$'.strlen($argument)."\r\n".$argument."\r\n";
-		}
-
-		if(!$this->connection->send($command)){
-
-			$this->connect();
-
-			if(!$this->connection->send($command)){
+            if (!$this->connection->send($command)) {
                 return false;
-			}
-		}
+            }
+        }
 
-		return $this->readReply($command);
-	}
+        return $this->readReply($command);
+    }
 
-	protected function readReply($command)
-	{
-		$reply = $this->connection->read();
+    public function connect()
+    {
+        $this->connection = new redkaConnection($this->host, $this->port, $this->lang, $this->debug);
 
-		if($reply === false){
-			$this->connect();
-			$reply = $this->connection->read();
+        if ($this->connection->status == 1) {
+            $this->status = 1;
+        }
 
-			if ($reply === false){
-                die($this->texts['unableToReadReply'][$this->lang].' '.$command);
-			}
-		}
+        return $this;
+    }
 
-		$reply = trim($reply);
+    protected function readReply($command)
+    {
+        $reply = $this->connection->read();
 
-		switch ($reply[0]) {
-			case '-':
-                die($this->texts['error'][$this->lang].' '.$reply);
-				break;
-			case '+':
-				return substr($reply, 1);
-				break;
-			case '$':
-				$response = null;
+        if ($reply === false) {
+            $this->connect();
+            $reply = $this->connection->read();
 
-				if($reply == '$-1'){
-					return false;
-					break;
-				}
+            if ($reply === false) {
+                die($this->texts['unableToReadReply'][$this->lang] . ' ' . $command);
+            }
+        }
 
-				$size = intval(substr($reply, 1));
+        $reply = trim($reply);
 
-				if($size > 0){
-					$response = stream_get_contents($this->connection->getSocket(), $size);
-				}
+        switch ($reply[0]) {
+            case '-':
+                die($this->texts['error'][$this->lang] . ' ' . $reply);
+                break;
+            case '+':
+                return substr($reply, 1);
+                break;
+            case '$':
+                $response = null;
 
-				// Discard crlf
-				$this->connection->positionRead(2);
-				return $response;
-				break;
-			case '*':
-				$count = substr($reply, 1);
+                if ($reply == '$-1') {
+                    return false;
+                    break;
+                }
 
-				if($count == '-1'){
-					return null;
-				}
+                $size = intval(substr($reply, 1));
 
-				$response = array();
+                if ($size > 0) {
+                    $response = stream_get_contents($this->connection->getSocket(), $size);
+                }
 
-				for($i = 0; $i < $count; $i++){
-					$response[] = $this->readReply($command);
-				}
+                // Discard crlf
+                $this->connection->positionRead(2);
+                return $response;
+                break;
+            case '*':
+                $count = substr($reply, 1);
 
-				return $response;
-				break;
-			case ':':
-				return intval(substr($reply, 1));
-				break;
-			default:
-                echo $this->texts['error'][$this->lang].' '.$this->texts['wtf'][$this->lang].': ';
+                if ($count == '-1') {
+                    return null;
+                }
+
+                $response = array();
+
+                for ($i = 0; $i < $count; $i++) {
+                    $response[] = $this->readReply($command);
+                }
+
+                return $response;
+                break;
+            case ':':
+                return intval(substr($reply, 1));
+                break;
+            default:
+                echo $this->texts['error'][$this->lang] . ' ' . $this->texts['wtf'][$this->lang] . ': ';
                 print_r($reply);
                 die();
                 break;
-		}
-	}
+        }
+    }
+
+    public function del($key)
+    {
+        return $this->send('del', array($key));
+    }
+
+    public function set($key, $value, $expire = null)
+    {
+        if (is_int($expire)) {
+            return $this->send('setex', array($key, $expire, $value));
+        } else {
+            return $this->send('set', array($key, $value));
+        }
+    }
+
+    public function listPush($listName, $value, $pushType = self::LIST_PUSH_RIGHT)
+    {
+        $command = 'rpush';
+
+        if ($pushType == self::LIST_PUSH_LEFT) {
+            $command = 'lpush';
+        }
+
+        return $this->send($command, array($listName, $value));
+    }
+
+    public function listPop($listName, $popType = self::LIST_POP_RIGHT)
+    {
+        $command = 'rpop';
+
+        if ($popType == self::LIST_POP_LEFT) {
+            $command = 'lpop';
+        }
+
+        return $this->send($command, array($listName));
+    }
+
+    public function listGet($listName, $index)
+    {
+        return $this->send('lindex', array($listName, $index));
+    }
+
+    public function hashGet($hashName, $key)
+    {
+        return $this->send('hget', array($hashName, $key));
+    }
+
+    public function hashSet($hashName, $key, $value)
+    {
+        return (boolean)$this->send('hset', array($hashName, $key, $value));
+    }
+
+    public function hashDelete($hashName, $key)
+    {
+        return (boolean)$this->send('hdel', array($hashName, $key));
+    }
+
+    public function listSet($listName, $index, $value)
+    {
+        return $this->send('lset', array($listName, $index, $value));
+    }
+
+    public function listGetRange($listName, $firstIndex, $lastIndex)
+    {
+        return $this->send('lrange', array($listName, $firstIndex, $lastIndex));
+    }
+
+    public function listLength($listName)
+    {
+        return $this->send('llen', array($listName));
+    }
+
+    public function remove($key)
+    {
+        return $this->send('del', array($key));
+    }
+
+    public function authenticate($password)
+    {
+        return $this->send('auth', array($password));
+    }
+
+    public function persist($key)
+    {
+        return $this->send('persist', array($key));
+    }
+
+    public function findKeys($pattern = '*')
+    {
+        return $this->send('keys', array($pattern));
+    }
+
+    public function flush()
+    {
+        return $this->send('flushdb');
+    }
+
+    public function getStats()
+    {
+        return $this->send('info');
+    }
+
+    public function getParameter($parameterName)
+    {
+        return $this->send('config', array('GET', $parameterName));
+    }
+
+    public function setParameter($parameterName, $value)
+    {
+        return $this->send('config', array('SET', $parameterName, $value));
+    }
+
+    public function getSize()
+    {
+        return $this->send('dbsize');
+    }
 }
