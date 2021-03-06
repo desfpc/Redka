@@ -1,0 +1,20 @@
+{
+  "name": "desfpc/redka",
+  "description": "Lite redis class",
+  "minimum-stability": "dev",
+  "license": "proprietary",
+  "authors": [
+    {
+      "name": "Sergey Peshalov",
+      "email": "desfpc@gmail.com"
+    }
+  ],
+  "require": {
+
+  },
+  "autoload": {
+    "psr-4": {
+      "redka\\": "/src"
+    }
+  }
+}
