@@ -2,7 +2,7 @@
   "name": "desfpc/redka",
   "description": "Lite redis class",
   "minimum-stability": "dev",
-  "license": "proprietary",
+  "license": "Apache License 2.0",
   "authors": [
     {
       "name": "Sergey Peshalov",
