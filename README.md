@@ -3,11 +3,15 @@ Lite redis php class
 
 
 ##How to install and use:
-1) Download and include class file: require_once ('redka.php');
-2) Connect: $redis = new redka($host, $port, $language = 'en', $debugMode = false); // Languages is 'en' or 'ru', debugMode - (true or false) give more debug info
-
-Or use composer: 
+1) Use composer: 
 composer require desfpc/redka
+2) use desfpc/Redka/Redka in your script
+3) Create Redis object: $redis = new Redka($host, $port, $lang, $debug);
+
+- $host - Redis host;
+- $port - Redis port;
+- $lang - language name ('en' or 'ru')
+- $debug - debug mode - boolean (true or false)
 
 #
 
