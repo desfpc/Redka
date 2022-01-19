@@ -257,7 +257,7 @@ class Redka
     public function set(string $key, $value, ?int $expire = null)
     {
         if (is_int($expire)) {
-            return $this->send('setex', array($key, $expire, $value));
+            return $this->send('setex', array($key, (string)$expire, $value));
         } else {
             return $this->send('set', array($key, $value));
         }
